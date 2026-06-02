@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Control de Horas Flexibles</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 20px auto; 
+            max-width: 400px; 
+            background-color: #f4f4f9;
+        }
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        input, button { 
+            padding: 10px; 
+            margin: 5px 0 15px 0; 
+            width: 100%; 
+            box-sizing: border-box; 
+            font-size: 16px;
+        }
+        button { 
+            background-color: #0056b3; 
+            color: white; 
+            border: none; 
+            border-radius: 5px;
+            cursor: pointer; 
+            font-weight: bold;
+        }
+        button:hover { background-color: #004494; }
+        .btn-borrar { background-color: #dc3545; margin-top: 20px;}
+        .btn-borrar:hover { background-color: #c82333; }
+        table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin-top: 10px; 
+        }
+        th, td { 
+            border-bottom: 1px solid #ddd; 
+            padding: 8px; 
+            text-align: center; 
+        }
+        th { background-color: #f8f9fa; }
+        .positivo { color: green; font-weight: bold; }
+        .negativo { color: red; font-weight: bold; }
+        h2, h3 { text-align: center; color: #333; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>⏱️ Mis Horas</h2>
+        
+        <label>Hora de Entrada:</label>
+        <input type="time" id="entrada" required>
+        
+        <label>Hora de Salida:</label>
+        <input type="time" id="salida" required>
+        
+        <button onclick="agregarRegistro()">Calcular y Guardar Día</button>
+
+        <h3>Saldo Acumulado: <br><span id="saldoTotal">0 min</span></h3>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Entrada</th>
+                    <th>Salida</th>
+                    <th>Día</th>
+                </tr>
+            </thead>
+            <tbody id="tablaRegistros">
+            </tbody>
+        </table>
+        
+        <button class="btn-borrar" onclick="limpiarDatos()">Borrar Historial</button>
+    </div>
+
+    <script>
+        let saldoAcumulado = 0;
+
+        // Esto carga los datos guardados en tu navegador cuando abres la página
+        window.onload = function() {
+            if(localStorage.getItem('registros_horas')) {
+                document.getElementById('tablaRegistros').innerHTML = localStorage.getItem('registros_horas');
+                saldoAcumulado = parseInt(localStorage.getItem('saldo_horas')) || 0;
+                actualizarSaldoUI();
+            }
+        }
+
+        function agregarRegistro() {
+            let ent = document.getElementById('entrada').value;
+            let sal = document.getElementById('salida').value;
+            
+            if(!ent || !sal) {
+                alert("Por favor, completa ambos horarios.");
+                return;
+            }
+
+            // Convertimos la hora de texto a números
+            let [hEnt, mEnt] = ent.split(':').map(Number);
+            let [hSal, mSal] = sal.split(':').map(Number);
+
+            // Pasamos todo a minutos para calcular fácil
+            let minEnt = (hEnt * 60) + mEnt;
+            let minSal = (hSal * 60) + mSal;
+            
+            let minTrabajados = minSal - minEnt;
+            
+            // Jornada obligatoria: 9 horas (540 minutos)
+            let balanceDia = minTrabajados - 540; 
+
+            saldoAcumulado += balanceDia;
+
+            // Damos formato a los colores
+            let colorClass = balanceDia >= 0 ? 'positivo' : 'negativo';
+            let signo = balanceDia > 0 ? '+' : '';
+
+            let nuevaFila = `<tr>
+                <td>${ent}</td>
+                <td>${sal}</td>
+                <td class="${colorClass}">${signo}${balanceDia} min</td>
+            </tr>`;
+
+            let tabla = document.getElementById('tablaRegistros');
+            tabla.innerHTML += nuevaFila;
+
+            // Guardamos en la memoria del navegador
+            localStorage.setItem('registros_horas', tabla.innerHTML);
+            localStorage.setItem('saldo_horas', saldoAcumulado);
+
+            actualizarSaldoUI();
+            
+            // Limpiamos las casillas para el siguiente día
+            document.getElementById('entrada').value = '';
+            document.getElementById('salida').value = '';
+        }
+
+        function actualizarSaldoUI() {
+            let colorClass = saldoAcumulado >= 0 ? 'positivo' : 'negativo';
+            let signo = saldoAcumulado > 0 ? '+' : '';
+            document.getElementById('saldoTotal').innerHTML = `<span class="${colorClass}">${signo}${saldoAcumulado} min</span>`;
+        }
+
+        function limpiarDatos() {
+            if(confirm("¿Estás seguro de que quieres empezar de cero? Esto borrará tus datos guardados.")) {
+                localStorage.removeItem('registros_horas');
+                localStorage.removeItem('saldo_horas');
+                document.getElementById('tablaRegistros').innerHTML = '';
+                saldoAcumulado = 0;
+                actualizarSaldoUI();
+            }
+        }
+    </script>
+</body>
+</html>
