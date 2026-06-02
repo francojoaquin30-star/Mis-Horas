@@ -39,23 +39,29 @@
             width: 100%; 
             border-collapse: collapse; 
             margin-top: 10px; 
+            font-size: 14px;
         }
         th, td { 
             border-bottom: 1px solid #ddd; 
             padding: 8px; 
             text-align: center; 
         }
-        th { background-color: #f8f9fa; }
+        th { background-color: #f8f9fa; font-size: 13px;}
         .positivo { color: green; font-weight: bold; }
         .negativo { color: red; font-weight: bold; }
         h2, h3 { text-align: center; color: #333; }
+        .mes-actual { text-align: center; color: #666; font-size: 14px; margin-top: -10px;}
     </style>
 </head>
 <body>
 
     <div class="container">
         <h2>⏱️ Mis Horas</h2>
+        <p class="mes-actual" id="textoMes">Cargando mes...</p>
         
+        <label>Fecha:</label>
+        <input type="date" id="fecha" required>
+
         <label>Hora de Entrada:</label>
         <input type="time" id="entrada" required>
         
@@ -64,64 +70,87 @@
         
         <button onclick="agregarRegistro()">Calcular y Guardar Día</button>
 
-        <h3>Saldo Acumulado: <br><span id="saldoTotal">0 min</span></h3>
+        <h3>Saldo del Mes: <br><span id="saldoTotal">0 min</span></h3>
 
         <table>
             <thead>
                 <tr>
-                    <th>Entrada</th>
-                    <th>Salida</th>
                     <th>Día</th>
+                    <th>Ent.</th>
+                    <th>Sal.</th>
+                    <th>Balance</th>
                 </tr>
             </thead>
             <tbody id="tablaRegistros">
             </tbody>
         </table>
         
-        <button class="btn-borrar" onclick="limpiarDatos()">Borrar Historial</button>
+        <button class="btn-borrar" onclick="limpiarDatos()">Borrar Historial Manualmente</button>
     </div>
 
     <script>
         let saldoAcumulado = 0;
 
-        // Esto carga los datos guardados en tu navegador cuando abres la página
         window.onload = function() {
+            // Poner la fecha de hoy por defecto
+            let hoy = new Date();
+            let anio = hoy.getFullYear();
+            let mes = String(hoy.getMonth() + 1).padStart(2, '0');
+            let dia = String(hoy.getDate()).padStart(2, '0');
+            document.getElementById('fecha').value = `${anio}-${mes}-${dia}`;
+
+            // Cargar datos guardados
             if(localStorage.getItem('registros_horas')) {
                 document.getElementById('tablaRegistros').innerHTML = localStorage.getItem('registros_horas');
                 saldoAcumulado = parseInt(localStorage.getItem('saldo_horas')) || 0;
-                actualizarSaldoUI();
             }
+            actualizarUI();
         }
 
         function agregarRegistro() {
+            let fechaInput = document.getElementById('fecha').value;
             let ent = document.getElementById('entrada').value;
             let sal = document.getElementById('salida').value;
             
-            if(!ent || !sal) {
-                alert("Por favor, completa ambos horarios.");
+            if(!fechaInput || !ent || !sal) {
+                alert("Por favor, completa la fecha y ambos horarios.");
                 return;
             }
 
-            // Convertimos la hora de texto a números
+            // Identificar el mes de la fecha ingresada (ej. "2026-06")
+            let mesRegistro = fechaInput.substring(0, 7);
+            let mesGuardado = localStorage.getItem('mes_actual');
+
+            // Si es un mes nuevo, reiniciamos todo automáticamente
+            if (mesGuardado && mesGuardado !== mesRegistro) {
+                alert("¡Nuevo mes detectado! Los contadores se han reiniciado para empezar de cero.");
+                document.getElementById('tablaRegistros').innerHTML = '';
+                saldoAcumulado = 0;
+            }
+
+            // Calculamos minutos
             let [hEnt, mEnt] = ent.split(':').map(Number);
             let [hSal, mSal] = sal.split(':').map(Number);
 
-            // Pasamos todo a minutos para calcular fácil
             let minEnt = (hEnt * 60) + mEnt;
             let minSal = (hSal * 60) + mSal;
             
             let minTrabajados = minSal - minEnt;
             
-            // Jornada obligatoria: 9 horas (540 minutos)
+            // Jornada de 9 horas (540 minutos)
             let balanceDia = minTrabajados - 540; 
-
             saldoAcumulado += balanceDia;
 
-            // Damos formato a los colores
+            // Formatear la fecha para la tabla (DD/MM)
+            let [anio, mes, dia] = fechaInput.split('-');
+            let fechaTabla = `${dia}/${mes}`;
+
+            // Colores
             let colorClass = balanceDia >= 0 ? 'positivo' : 'negativo';
             let signo = balanceDia > 0 ? '+' : '';
 
             let nuevaFila = `<tr>
+                <td>${fechaTabla}</td>
                 <td>${ent}</td>
                 <td>${sal}</td>
                 <td class="${colorClass}">${signo}${balanceDia} min</td>
@@ -130,30 +159,40 @@
             let tabla = document.getElementById('tablaRegistros');
             tabla.innerHTML += nuevaFila;
 
-            // Guardamos en la memoria del navegador
+            // Guardar todo
             localStorage.setItem('registros_horas', tabla.innerHTML);
             localStorage.setItem('saldo_horas', saldoAcumulado);
+            localStorage.setItem('mes_actual', mesRegistro); // Guardamos el mes actual
 
-            actualizarSaldoUI();
+            actualizarUI();
             
-            // Limpiamos las casillas para el siguiente día
+            // Limpiar horas para el siguiente uso (la fecha la dejamos)
             document.getElementById('entrada').value = '';
             document.getElementById('salida').value = '';
         }
 
-        function actualizarSaldoUI() {
+        function actualizarUI() {
             let colorClass = saldoAcumulado >= 0 ? 'positivo' : 'negativo';
             let signo = saldoAcumulado > 0 ? '+' : '';
             document.getElementById('saldoTotal').innerHTML = `<span class="${colorClass}">${signo}${saldoAcumulado} min</span>`;
+            
+            let mesGuardado = localStorage.getItem('mes_actual');
+            if(mesGuardado) {
+                let [anio, mes] = mesGuardado.split('-');
+                document.getElementById('textoMes').innerText = `Mes en curso: ${mes}/${anio}`;
+            } else {
+                document.getElementById('textoMes').innerText = `Aún no hay registros`;
+            }
         }
 
         function limpiarDatos() {
-            if(confirm("¿Estás seguro de que quieres empezar de cero? Esto borrará tus datos guardados.")) {
+            if(confirm("¿Estás seguro de que quieres borrar todo el mes actual?")) {
                 localStorage.removeItem('registros_horas');
                 localStorage.removeItem('saldo_horas');
+                localStorage.removeItem('mes_actual');
                 document.getElementById('tablaRegistros').innerHTML = '';
                 saldoAcumulado = 0;
-                actualizarSaldoUI();
+                actualizarUI();
             }
         }
     </script>
